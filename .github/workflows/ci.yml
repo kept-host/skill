@@ -1,0 +1,43 @@
+# The skill repo's own CI (kept-host/skill; inert inside the kept monorepo,
+# where GitHub reads only the root .github/). E09 AC1, AC3, AC4.
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  shellcheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: shellcheck skills/kept/scripts/publish.sh
+      - run: bash -n skills/kept/scripts/publish.sh
+
+  # `npx skills add` installs into Claude Code's and Codex's global folders.
+  install:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install from this checkout
+        run: npx -y skills add "$GITHUB_WORKSPACE" --skill kept -g -a claude-code codex -y --copy
+      - name: Check the installed files
+        run: |
+          for dir in "$HOME/.claude/skills/kept" "$HOME/.agents/skills/kept"; do
+            cmp "$dir/SKILL.md" skills/kept/SKILL.md
+            cmp "$dir/scripts/publish.sh" skills/kept/scripts/publish.sh
+            echo "ok: $dir"
+          done
+
